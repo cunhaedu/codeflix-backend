@@ -1,44 +1,39 @@
 package com.cunhaedu.admin.catalogo.application.category.update;
 
+import com.cunhaedu.admin.catalogo.IntegrationTest;
 import com.cunhaedu.admin.catalogo.domain.category.Category;
 import com.cunhaedu.admin.catalogo.domain.category.CategoryGateway;
-import com.cunhaedu.admin.catalogo.domain.category.CategoryId;
 import com.cunhaedu.admin.catalogo.domain.exceptions.DomainException;
+import com.cunhaedu.admin.catalogo.infrastructure.category.persistence.CategoryJpaEntity;
+import com.cunhaedu.admin.catalogo.infrastructure.category.persistence.CategoryRepository;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
-import java.util.Objects;
-import java.util.Optional;
+import java.util.Arrays;
 
-import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.any;
-import static org.mockito.AdditionalAnswers.returnsFirstArg;
 
-@ExtendWith(MockitoExtension.class)
-class UpdateCategoryUseCaseTest {
+@IntegrationTest
+class UpdateCategoryUseCaseIT {
 
-    @InjectMocks
-    private DefaultUpdateCategoryUseCase useCase;
+    @Autowired
+    private UpdateCategoryUseCase useCase;
 
-    @Mock
+    @Autowired
+    private CategoryRepository categoryRepository;
+
+    @MockitoSpyBean
     private CategoryGateway categoryGateway;
-
-    @BeforeEach
-    void cleanUp() {
-        Mockito.reset(categoryGateway);
-    }
 
     @Test
     void givenAValidCommand_whenCallsUpdateCategory_shouldReturnCategoryId() {
         final var category = Category.newCategory("Film", null, true);
+
+        save(category);
 
         final var expectedId = category.getId();
         final var expectedName = "Filmes";
@@ -52,32 +47,28 @@ class UpdateCategoryUseCaseTest {
                 expectedIsActive
         );
 
-        when(categoryGateway.findByID(expectedId))
-                .thenReturn(Optional.of(category.copy()));
-
-        when(categoryGateway.update(any()))
-                .thenAnswer(returnsFirstArg());
+        Assertions.assertEquals(1, categoryRepository.count());
 
         final var actualOutput = useCase.execute(aCommand).get();
 
         Assertions.assertNotNull(actualOutput);
         Assertions.assertNotNull(actualOutput.id());
 
-        Mockito.verify(categoryGateway, times(1)).findByID(expectedId);
+        final var actualCategory = categoryRepository.findById(expectedId.getValue()).get();
 
-        Mockito.verify(categoryGateway, times(1)).update(argThat(aUpdatedCategory ->
-                Objects.equals(expectedName, aUpdatedCategory.getName())
-                        && Objects.equals(expectedDescription, aUpdatedCategory.getDescription())
-                        && Objects.equals(expectedIsActive, aUpdatedCategory.isActive())
-                        && Objects.equals(expectedId, aUpdatedCategory.getId())
-                        && Objects.equals(category.getCreatedAt(), aUpdatedCategory.getCreatedAt())
-                        && Objects.isNull(aUpdatedCategory.getDeletedAt())
-        ));
+        Assertions.assertEquals(expectedName, actualCategory.getName());
+        Assertions.assertEquals(expectedDescription, actualCategory.getDescription());
+        Assertions.assertEquals(expectedIsActive, actualCategory.isActive());
+        Assertions.assertEquals(category.getCreatedAt(), actualCategory.getCreatedAt());
+        Assertions.assertTrue(category.getUpdatedAt().isBefore(actualCategory.getUpdatedAt()));
+        Assertions.assertEquals(category.getDeletedAt(), actualCategory.getDeletedAt());
     }
 
     @Test
     void givenAInvalidName_whenCallsUpdateCategory_thenShouldReturnDomainException() {
         final var category = Category.newCategory("Film", null, true);
+
+        save(category);
 
         final var expectedId = category.getId();
 
@@ -89,9 +80,6 @@ class UpdateCategoryUseCaseTest {
 
         final var aCommand =
                 UpdateCategoryCommand.with(expectedId.getValue(), expectedName, expectedDescription, expectedIsActive);
-
-        when(categoryGateway.findByID(expectedId))
-                .thenReturn(Optional.of(category.copy()));
 
         final var notification = useCase.execute(aCommand).getLeft();
 
@@ -105,6 +93,8 @@ class UpdateCategoryUseCaseTest {
     void givenAValidCommandWithInactiveCategory_whenCallsUpdateCategory_shouldReturnInactiveCategoryId() {
         final var category = Category.newCategory("Film", null, true);
 
+        save(category);
+
         final var expectedId = category.getId();
         final var expectedName = "Filmes";
         final var expectedDescription = "A categoria mais assistida";
@@ -117,12 +107,6 @@ class UpdateCategoryUseCaseTest {
                 expectedIsActive
         );
 
-        when(categoryGateway.findByID(expectedId))
-                .thenReturn(Optional.of(category.copy()));
-
-        when(categoryGateway.update(any()))
-                .thenAnswer(returnsFirstArg());
-
         Assertions.assertTrue(category.isActive());
         Assertions.assertNull(category.getDeletedAt());
 
@@ -131,21 +115,21 @@ class UpdateCategoryUseCaseTest {
         Assertions.assertNotNull(actualOutput);
         Assertions.assertNotNull(actualOutput.id());
 
-        Mockito.verify(categoryGateway, times(1)).findByID(expectedId);
+        final var actualCategory = categoryRepository.findById(expectedId.getValue()).get();
 
-        Mockito.verify(categoryGateway, times(1)).update(argThat(aUpdatedCategory ->
-                Objects.equals(expectedName, aUpdatedCategory.getName())
-                        && Objects.equals(expectedDescription, aUpdatedCategory.getDescription())
-                        && Objects.equals(expectedIsActive, aUpdatedCategory.isActive())
-                        && Objects.equals(expectedId, aUpdatedCategory.getId())
-                        && Objects.equals(category.getCreatedAt(), aUpdatedCategory.getCreatedAt())
-                        && Objects.nonNull(aUpdatedCategory.getDeletedAt())
-        ));
+        Assertions.assertEquals(expectedName, actualCategory.getName());
+        Assertions.assertEquals(expectedDescription, actualCategory.getDescription());
+        Assertions.assertEquals(expectedIsActive, actualCategory.isActive());
+        Assertions.assertEquals(category.getCreatedAt(), actualCategory.getCreatedAt());
+        Assertions.assertTrue(category.getUpdatedAt().isBefore(actualCategory.getUpdatedAt()));
+        Assertions.assertNotNull(actualCategory.getDeletedAt());
     }
 
     @Test
     void givenAValidCommand_whenGatewayThrowsRandomException_shouldReturnAException() {
         final var category = Category.newCategory("Film", null, true);
+
+        save(category);
 
         final var expectedId = category.getId();
         final var expectedName = "Filmes";
@@ -161,25 +145,22 @@ class UpdateCategoryUseCaseTest {
                 expectedIsActive
         );
 
-        when(categoryGateway.findByID(expectedId))
-                .thenReturn(Optional.of(category.copy()));
-
-        when(categoryGateway.update(any()))
-                .thenThrow(new IllegalStateException(expectedErrorMessage));
+        Mockito.doThrow(new IllegalStateException(expectedErrorMessage))
+                        .when(categoryGateway).update(any());
 
         final var notification = useCase.execute(aCommand).getLeft();
 
         Assertions.assertEquals(expectedErrorCount, notification.getErrors().size());
         Assertions.assertEquals(expectedErrorMessage, notification.firstError().message());
 
-        Mockito.verify(categoryGateway, times(1)).update(argThat(aUpdatedCategory ->
-                Objects.equals(expectedName, aUpdatedCategory.getName())
-                        && Objects.equals(expectedDescription, aUpdatedCategory.getDescription())
-                        && Objects.equals(expectedIsActive, aUpdatedCategory.isActive())
-                        && Objects.equals(expectedId, aUpdatedCategory.getId())
-                        && Objects.equals(category.getCreatedAt(), aUpdatedCategory.getCreatedAt())
-                        && Objects.isNull(aUpdatedCategory.getDeletedAt())
-        ));
+        final var actualCategory = categoryRepository.findById(expectedId.getValue()).get();
+
+        Assertions.assertEquals(category.getName(), actualCategory.getName());
+        Assertions.assertEquals(category.getDescription(), actualCategory.getDescription());
+        Assertions.assertEquals(category.isActive(), actualCategory.isActive());
+        Assertions.assertEquals(category.getCreatedAt(), actualCategory.getCreatedAt());
+        Assertions.assertEquals(category.getUpdatedAt(), actualCategory.getUpdatedAt());
+        Assertions.assertNull(actualCategory.getDeletedAt());
     }
 
     @Test
@@ -198,17 +179,19 @@ class UpdateCategoryUseCaseTest {
                 expectedIsActive
         );
 
-        when(categoryGateway.findByID(CategoryId.from(expectedId)))
-                .thenReturn(Optional.empty());
-
         final var actualException =
                 Assertions.assertThrows(DomainException.class, () -> useCase.execute(aCommand));
 
         Assertions.assertEquals(expectedErrorCount, actualException.getErrors().size());
         Assertions.assertEquals(expectedError, actualException.getErrors().get(0).message());
 
-        Mockito.verify(categoryGateway, times(1)).findByID(CategoryId.from(expectedId));
+    }
 
-        Mockito.verify(categoryGateway, times(0)).update(any());
+    private void save(final Category... aCategories) {
+        categoryRepository.saveAllAndFlush(
+                Arrays.stream(aCategories)
+                        .map(CategoryJpaEntity::from)
+                        .toList()
+        );
     }
 }

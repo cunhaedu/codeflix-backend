@@ -4,6 +4,8 @@ import com.cunhaedu.admin.catalogo.domain.AggregateRoot;
 import com.cunhaedu.admin.catalogo.domain.validation.ValidationHandler;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Objects;
 
 public class Category extends AggregateRoot<CategoryId> {
     private String name;
@@ -26,9 +28,41 @@ public class Category extends AggregateRoot<CategoryId> {
         this.name = name;
         this.description = description;
         this.active = active;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
+        this.createdAt = Objects.requireNonNull(createdAt, "'createdAt' should not be null");
+        this.updatedAt = Objects.requireNonNull(updatedAt, "'updatedAt' should not be null");
         this.deletedAt = deletedAt;
+    }
+
+    public static Category with(final Category aCategory) {
+        return with(
+                aCategory.getId(),
+                aCategory.name,
+                aCategory.description,
+                aCategory.active,
+                aCategory.createdAt,
+                aCategory.updatedAt,
+                aCategory.deletedAt
+        );
+    }
+
+    public static Category with(
+            final CategoryId anId,
+            final String name,
+            final String description,
+            final boolean active,
+            final Instant createdAt,
+            final Instant updatedAt,
+            final Instant deletedAt
+    ) {
+        return new Category(
+                anId,
+                name,
+                description,
+                active,
+                createdAt,
+                updatedAt,
+                deletedAt
+        );
     }
 
     public static Category newCategory(
@@ -37,8 +71,8 @@ public class Category extends AggregateRoot<CategoryId> {
         final boolean active
     ) {
         final var id = CategoryId.unique();
-        final var now = Instant.now();
-        final var deletedAt = active ? null : Instant.now();
+        final var now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        final var deletedAt = active ? null : now;
         return new Category(id, name, description, active, now, now, deletedAt);
     }
 
