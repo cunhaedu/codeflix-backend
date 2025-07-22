@@ -15,7 +15,7 @@ import java.lang.annotation.*;
 @DataJpaTest
 @ComponentScan(includeFilters = {
         // Doing this because DataJpaTest does not see the CategoryMySQLGateway
-        @ComponentScan.Filter(type = FilterType.REGEX, pattern = ".*[MySQLGateway]")
+        @ComponentScan.Filter(type = FilterType.REGEX, pattern = ".[MySQLGateway]")
 })
 @ExtendWith(CleanUpExtension.class)
 public @interface MySQLGatewayTest {}
